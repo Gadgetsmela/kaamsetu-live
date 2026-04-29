@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import "./globals.css";
 import Link from "next/link";
 import type { Metadata } from "next";
@@ -11,6 +12,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body>
+        <header>...</header>
+{children}
         <header className="sticky top-0 z-10 border-b bg-white">
           <div className="container-mobile flex items-center justify-between py-3">
             <Link href="/" className="font-bold text-brand-700">KaamSetu</Link>
