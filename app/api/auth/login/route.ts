@@ -1,22 +1,41 @@
+import { NextRequest } from "next/server";
 import { compare } from "bcryptjs";
-import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { loginSchema } from "@/lib/validations/auth";
-import { fail } from "@/lib/utils/response";
+import { fail, ok } from "@/lib/utils/response";
 import { signToken } from "@/lib/auth/jwt";
+import { cookies } from "next/headers";
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
   const parsed = loginSchema.safeParse(body);
   if (!parsed.success) return fail(parsed.error.issues[0]?.message || "Invalid input");
 
-  const user = await prisma.user.findUnique({ where: { phone: parsed.data.phone } });
-  if (!user || !(await compare(parsed.data.password, user.passwordHash))) {
-    return fail("Invalid credentials", 401);
-  }
+  const { phone, password } = parsed.data;
 
-  const token = await signToken({ userId: user.id, role: user.role, name: user.name });
-  const response = NextResponse.json({ success: true, data: { id: user.id, role: user.role, name: user.name } });
-  response.cookies.set("kaamsetu_token", token, { httpOnly: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 * 7 });
-  return response;
+  const user = await prisma.user.findUnique({
+    where: { phone },
+  });
+  if (!user) return fail("Phone not registered", 401);
+
+  const isValid = await compare(password, user.passwordHash);
+  if (!isValid) return fail("Invalid credentials", 401);
+
+  // Create token with matching SessionPayload
+  const token = await signToken({
+    userId: user.id,
+    role: user.role as "OWNER" | "WORKER" | "ADMIN",
+    name: user.name || "",
+  });
+
+  // Set HTTP-only cookie
+  (await cookies()).set("token", token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    maxAge: 60 * 60 * 24 * 7, // 7 days
+    path: "/",
+  });
+
+  return ok({ user: { id: user.id, name: user.name, role: user.role } });
 }

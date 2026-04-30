@@ -1,18 +1,29 @@
-import { JobCard } from "@/components/jobs/job-card";
+import Link from "next/link";
+import { prisma } from "@/lib/prisma";
 
-async function getJobs() {
-  const res = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/jobs`, { cache: "no-store" });
-  const data = await res.json();
-  return data.data as any[];
-}
+export const dynamic = "force-dynamic";
 
 export default async function JobsPage() {
-  const jobs = await getJobs();
+  const jobs = await prisma.job.findMany({
+    orderBy: { createdAt: "desc" },
+    include: { owner: { select: { name: true } } },
+  });
+
   return (
-    <div className="space-y-3">
-      <h2 className="text-xl font-semibold">Job Listings</h2>
-      <div className="grid gap-3">
-        {jobs.length === 0 ? <p className="rounded-xl bg-white p-4">No jobs found.</p> : jobs.map((job) => <JobCard key={job.id} job={job} />)}
+    <div className="p-4 space-y-4">
+      <h1 className="text-2xl font-bold">All Jobs</h1>
+      <div className="grid gap-4">
+        {jobs.map((job) => (
+          <Link key={job.id} href={`/jobs/${job.id}`}>
+            <div className="rounded-xl border bg-white p-4 shadow-sm hover:shadow-md transition">
+              <h2 className="text-lg font-semibold">{job.title}</h2>
+              <p className="text-gray-600 line-clamp-2">{job.description}</p>
+              <p className="text-sm text-gray-500 mt-2">
+                Budget: ₹{job.budget} · Posted by {job.owner.name || "Owner"}
+              </p>
+            </div>
+          </Link>
+        ))}
       </div>
     </div>
   );
